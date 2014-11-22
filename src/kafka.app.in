@@ -1,0 +1,14 @@
+%%% @author Aleksey Morarash <aleksey.morarash@gmail.com>
+%%% @since 4 Aug 2014
+%%% @copyright 2014, Aleksey Morarash <aleksey.morarash@gmail.com>
+%%% @doc kafka application resource file
+
+{application, kafka,
+ [
+  {description,  "Apache Kafka 0.8.x Client"},
+  {vsn,          "{{VERSION}}"},
+  {modules,      [kafka,
+                  kafka_client,
+                  kafka_proto
+                 ]}
+ ]}.
