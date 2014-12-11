@@ -250,7 +250,7 @@ reconnect(OldState) ->
 schedule_reconnect() ->
     ?trace("total reconnect scheduled", []),
     {ok, _TRef} =
-        timer:apply_after(?CONNECT_RETRY_PERIOD, ?MODULE, hup, []),
+        timer:apply_after(?CONNECT_RETRY_PERIOD, ?MODULE, hup, [self()]),
     ok.
 
 %% @doc Try to read metadata from any available broker.
