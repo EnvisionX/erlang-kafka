@@ -231,6 +231,12 @@ reconnect(OldState) ->
                 [{BrokerId, _Socket = undefined} ||
                     {BrokerId, _Host, _Port} <-
                         Metadata#metadata_response.brokers],
+            if SocketItems == [] ->
+                    %% need reconnect
+                    ok = schedule_reconnect();
+               true ->
+                    ok
+            end,
             reconnect_brokers(
               OldState#state{
                 sockets = SocketItems,
