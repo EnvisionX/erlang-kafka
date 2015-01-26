@@ -1,10 +1,11 @@
-erlang-kafka (0.2.1) unstable; urgency=low
+erlang-kafka (0.2.2) unstable; urgency=low
 
   * fix crash while reconnection;
   * decrease reconnect periods;
+  * reconnect when no brokers available;
   * extend readme with code examples.
 
- -- Aleksey Morarash <aleksey.morarash@gmail.com>  Thu, 11 Dec 2014 11:18:00 +0200
+ -- Aleksey Morarash <aleksey.morarash@gmail.com>  Mon, 26 Jan 2015 17:26:00 +0200
 
 erlang-kafka (0.2.0-1) unstable; urgency=low
 
