@@ -4,3 +4,4 @@ Emakefile
 *.app
 *~
 erl_crash.dump
+debian/install
