@@ -18,7 +18,7 @@ override_dh_auto_test:
 NAME = kafka
 DESTDIR = debian/erlang-$(NAME)
 DOC_DESTDIR = debian/erlang-$(NAME)-doc
-VERSION = $(shell cat version)
+VERSION = $(shell awk '{gsub("[()]","",$$2);print$$2;exit}' debian/changelog)
 ERL_APP_DESTDIR = $(DESTDIR)/usr/lib/erlang/lib/$(NAME)-$(VERSION)/ebin
 override_dh_install:
 	install -m 755 -d $(ERL_APP_DESTDIR)
