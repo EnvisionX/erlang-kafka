@@ -1,3 +1,11 @@
+erlang-kafka (0.2.3) unstable; urgency=low
+
+  * deb specs: simplify erlang app staged installation
+  * deb specs: simplify docs staged installation
+  * dispose of version file
+
+ -- Aleksey Morarash <aleksey.morarash@gmail.com>  Thu, 31 Mar 2016 19:52:43 +0300
+
 erlang-kafka (0.2.2) unstable; urgency=low
 
   * fix crash while reconnection;
