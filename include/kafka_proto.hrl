@@ -15,7 +15,7 @@
 %% API Keys
 -define(ProduceRequest, 0).
 -define(FetchRequest, 1).
--define(OffsetRequest, 2).
+-define(OffsetsRequest, 2).
 -define(MetadataRequest, 3).
 %% 4-7: Non-user facing control APIs
 -define(OffsetCommitRequest, 8).
@@ -149,7 +149,7 @@
 -type request() :: #request{}.
 
 -type api_key() ::
-        ?ProduceRequest | ?FetchRequest | ?OffsetRequest |
+        ?ProduceRequest | ?FetchRequest | ?OffsetsRequest |
         ?MetadataRequest | ?OffsetCommitRequest |
         ?OffsetFetchRequest | ?ConsumerMetadataRequest.
 
