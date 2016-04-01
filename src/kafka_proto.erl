@@ -291,31 +291,44 @@ decode_partition_metadata_array_loop(Length, EncodedItems, Accum)
 %% @doc Decode an array of int32.
 -spec decode_int32_array(Encoded :: binary()) ->
                                 {[int32()], Tail :: binary()}.
-decode_int32_array(Encoded) ->
-    <<Length:32/big-signed, EncodedItems/binary>> = Encoded,
-    decode_int32_array_loop(Length, EncodedItems, _Accum = []).
-
-%% @doc Decode int32-items of an array one by one.
--spec decode_int32_array_loop(Length :: non_neg_integer(),
-                              EncodedItems :: binary(),
-                              Accum :: [int32()]) ->
-                                     {[int32()], Tail :: binary()}.
-decode_int32_array_loop(0, Tail, Accum) ->
-    {lists:reverse(Accum), Tail};
-decode_int32_array_loop(Length, EncodedItems, Accum)
-  when Length > 0 ->
-    <<Item:32/big-signed, Tail/binary>> = EncodedItems,
-    decode_int32_array_loop(Length - 1, Tail, [Item | Accum]).
+decode_int32_array(<<Length:32/big-signed, EncodedItems/binary>>) ->
+    {EncodedArray, Tail} = split_binary(EncodedItems, Length * 4),
+    {[I || <<I:32/big-signed>> <= EncodedArray], Tail}.
 
 %% @doc Decode string.
 -spec decode_string(Encoded :: binary()) ->
-                           {Decoded :: kafka_string(),
-                            Rest :: binary()}.
-decode_string(Encoded) ->
-    <<Length:16/big-signed, Rest/binary>> = Encoded,
-    if Length == -1 ->
-            {?NULL, Rest};
-       true ->
-            {Subject, FinalRest} = split_binary(Rest, Length),
-            {binary_to_list(Subject), FinalRest}
-    end.
+                           {Decoded :: kafka_string(), Tail :: binary()}.
+decode_string(<<-1:16/big-signed, Tail/binary>>)  ->
+    {?NULL, Tail};
+decode_string(<<Length:16/big-signed, Tail/binary>>) ->
+    {Subject, FinalTail} = split_binary(Tail, Length),
+    {binary_to_list(Subject), FinalTail}.
+
+%% --------------------------------------------------------------------
+%% Eunit tests
+%% --------------------------------------------------------------------
+
+-ifdef(TEST).
+
+decode_int32_array_test_() ->
+    [?_assertMatch(
+        {[1234, 0, -1], <<"tail">>},
+        decode_int32_array(<<3:32/big-signed,
+                             1234:32/big-signed,
+                             0:32/big-signed,
+                             -1:32/big-signed, "tail">>)),
+     ?_assertMatch(
+        {[], <<"tail">>},
+        decode_int32_array(<<0:32/big-signed, "tail">>))
+    ].
+
+decode_string_test_() ->
+    [?_assertMatch(
+       {"hello, world", <<"tail">>},
+       decode_string(<<0,12, "hello, world", "tail">>)),
+     ?_assertMatch(
+       {?NULL, <<"hello, world">>},
+       decode_string(<<-1:16/big-signed, "hello, world">>))
+    ].
+
+-endif.
