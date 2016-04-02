@@ -5,10 +5,11 @@
 
 {application, kafka,
  [
-  {description,  "Apache Kafka 0.8.x Client"},
+  {description,  "Apache Kafka 0.8+ Client"},
   {vsn,          "{{VERSION}}"},
   {modules,      [kafka,
-                  kafka_client,
-                  kafka_proto
+                  kafka_socket,
+                  kafka_api,
+                  kafka_codec
                  ]}
  ]}.
