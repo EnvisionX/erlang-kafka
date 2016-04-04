@@ -10,6 +10,7 @@
   {modules,      [kafka,
                   kafka_socket,
                   kafka_api,
-                  kafka_codec
+                  kafka_codec,
+                  kafka_d
                  ]}
  ]}.
