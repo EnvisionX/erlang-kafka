@@ -115,4 +115,41 @@
 %% Retriable: no. Cluster authorization failed.
 -define(CLUSTER_AUTHORIZATION_FAILED, 31).
 
+-define(
+   err2atom(ErrorCode),
+   case ErrorCode of
+       ?UNKNOWN -> unknown;
+       ?NONE -> none;
+       ?CORRUPT_MESSAGE -> corrupt_message;
+       ?UNKNOWN_TOPIC_OR_PARTITION -> unknown_topic_or_partition;
+       ?LEADER_NOT_AVAILABLE -> leader_not_available;
+       ?NOT_LEADER_FOR_PARTITION -> not_leader_for_partition;
+       ?REQUEST_TIMED_OUT -> request_timed_out;
+       ?BROKER_NOT_AVAILABLE -> broker_not_available;
+       ?REPLICA_NOT_AVAILABLE -> replica_not_available;
+       ?MESSAGE_TOO_LARGE -> message_too_large;
+       ?STALE_CONTROLLER_EPOCH -> stale_controller_epoch;
+       ?OFFSET_METADATA_TOO_LARGE -> offset_metadata_too_large;
+       ?NETWORK_EXCEPTION -> network_exception;
+       ?GROUP_LOAD_IN_PROGRESS -> group_load_in_progress;
+       ?GROUP_COORDINATOR_NOT_AVAILABLE -> group_coordinator_not_available;
+       ?NOT_COORDINATOR_FOR_GROUP -> not_coordinator_for_group;
+       ?INVALID_TOPIC_EXCEPTION -> invalid_topic_exception;
+       ?RECORD_LIST_TOO_LARGE -> record_list_too_large;
+       ?NOT_ENOUGH_REPLICAS -> not_enough_replicas;
+       ?NOT_ENOUGH_REPLICAS_AFTER_APPEND -> not_enough_replicas_after_append;
+       ?INVALID_REQUIRED_ACKS -> invalid_required_acks;
+       ?ILLEGAL_GENERATION -> illegal_generation;
+       ?INCONSISTENT_GROUP_PROTOCOL -> inconsistent_group_protocol;
+       ?INVALID_GROUP_ID -> invalid_group_id;
+       ?UNKNOWN_MEMBER_ID -> unknown_member_id;
+       ?INVALID_SESSION_TIMEOUT -> invalid_session_timeout;
+       ?REBALANCE_IN_PROGRESS -> rebalance_in_progress;
+       ?INVALID_COMMIT_OFFSET_SIZE -> invalid_commit_offset_size;
+       ?TOPIC_AUTHORIZATION_FAILED -> topic_authorization_failed;
+       ?GROUP_AUTHORIZATION_FAILED -> group_authorization_failed;
+       ?CLUSTER_AUTHORIZATION_FAILED -> cluster_authorization_failed;
+       _ -> ErrorCode
+   end).
+
 -endif.
