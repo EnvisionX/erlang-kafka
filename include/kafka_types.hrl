@@ -24,4 +24,17 @@
 
 -type kbytes() :: binary() | undefined.
 
+%% ----------------------------------------------------------------------
+%% auxiliary types
+
+-type broker_id() :: int32().
+
+-type partition_id() :: int32().
+
+-type offset() :: int64().
+
+-type topic_name() :: string().
+
+-type group_id() :: string().
+
 -endif.
