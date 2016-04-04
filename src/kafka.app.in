@@ -11,6 +11,7 @@
                   kafka_socket,
                   kafka_api,
                   kafka_codec,
+                  kafka_consumer,
                   kafka_d
                  ]}
  ]}.
