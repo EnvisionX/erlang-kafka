@@ -7,6 +7,8 @@
 
 -module(kafka_socket).
 
+-behaviour(gen_server).
+
 %% API exports
 -export(
    [start_link/3,
