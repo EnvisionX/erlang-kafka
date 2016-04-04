@@ -12,8 +12,8 @@ Vcs-Git: https://github.com/tuxofil/erlang-kafka.git
 Package: erlang-kafka
 Architecture: all
 Depends: erlang-base
-Description: Erlang client for the Apache Kafka 0.8.x
- Erlang client for the Apache Kafka 0.8.x.
+Description: Erlang client for the Apache Kafka 0.8+
+ Erlang client for the Apache Kafka 0.8+.
 
 Package: erlang-kafka-doc
 Architecture: all
