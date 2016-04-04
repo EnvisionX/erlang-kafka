@@ -58,5 +58,6 @@ all-tests:
 clean:
 	rm -rf -- ebin doc/*.html doc/*.css doc/*.png doc/edoc-info \
 	    erl_crash.dump Emakefile doc/overview.edoc \
-	    *.log *.log.* tmp_file debian/install
+	    *.log *.log.* tmp_file debian/install \
+	    debian/erlang-kafka-dev.install
 	find . -type f -name '*~' -delete

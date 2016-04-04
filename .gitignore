@@ -5,3 +5,4 @@ Emakefile
 *~
 erl_crash.dump
 debian/install
+debian/erlang-kafka-dev.install

@@ -15,6 +15,11 @@ Depends: erlang-base
 Description: Erlang client for the Apache Kafka 0.8+
  Erlang client for the Apache Kafka 0.8+.
 
+Package: erlang-kafka-dev
+Architecture: all
+Description: Header files with Apache Kafka protocol definitions
+ Header files with Apache Kafka protocol definitions.
+
 Package: erlang-kafka-doc
 Architecture: all
 Description: Apache Kafka Erlang client documentation.
