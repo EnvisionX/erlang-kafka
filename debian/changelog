@@ -1,3 +1,11 @@
+erlang-kafka (1.0.0) unstable; urgency=low
+
+  * MAJOR: Total refactor. Less code, more features
+  * minor macro names fix
+  * _proto: shorten utility functions, cover with tests
+
+ -- Aleksey Morarash <aleksey.morarash@gmail.com>  Mon, 04 Apr 2016 15:22:44 +0300
+
 erlang-kafka (0.2.3) unstable; urgency=low
 
   * deb specs: simplify erlang app staged installation
