@@ -9,6 +9,7 @@ export DH_OPTIONS
 
 # Build the binary and docs.
 override_dh_auto_build:
+	$(MAKE) eunit
 	$(MAKE) clean compile html
 
 # Do not run any tests after the build
