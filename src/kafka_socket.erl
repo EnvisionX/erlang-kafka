@@ -59,7 +59,8 @@
 -type option() ::
         reconnect |
         {connect_timeout, non_neg_integer()} |
-        {reconnect_period, non_neg_integer()}.
+        {reconnect_period, non_neg_integer()} |
+        {state_listener, pid() | atom()}.
 
 %% --------------------------------------------------------------------
 %% API functions
@@ -67,6 +68,20 @@
 
 %% @doc Start a linked process. It will connect to the broker in
 %% background.
+%%
+%% Available options:
+%% <ul>
+%%  <li>reconnect - do not terminate on connection error or disconnect,
+%%     reconnect to the broker automatically;</li>
+%%  <li>{connect_timeout, Millis} - set TCP connect timeout;</li>
+%%  <li>{reconnect_period, Millis} - set sleep time before reconnecting.
+%%     Does sense only when 'reconnect' is set;</li>
+%%  <li>{state_listener, pid() | atom()} - PID or registered name of
+%%     the Erlang process which will receive notifications about
+%%     TCP connection state change: {kafka_socket, ClientPID, connected}
+%%     on connect and {kafka_socket, ClientPID, disconnected} on
+%%     disconnection.</li>
+%% </ul>
 -spec start_link(Host :: host(), Port :: inet:port_number(),
                  Options :: options()) ->
                         {ok, Pid :: pid()} | {error, Reason :: any()}.
@@ -157,6 +172,7 @@ async(Pid, ApiKey, ApiVersion, ClientID, RequestPayload) ->
    {host :: host(),
     port :: inet:port_number(),
     reconnect :: boolean(),
+    listener :: pid() | atom(),
     opts = [] :: options(),
     socket :: port()
    }).
@@ -173,6 +189,7 @@ init({Host, Port, Options}) ->
            host = Host,
            port = Port,
            reconnect = Reconnect,
+           listener = proplists:get_value(state_listener, Options),
            opts = Options},
     if Reconnect ->
             %% schedule reconnect in background
@@ -213,6 +230,7 @@ handle_info({tcp_closed, Socket}, State)
   when Socket == State#state.socket ->
     ?trace("connection closed", []),
     _OldStatus = erase(connected),
+    ok = notify(State, disconnected),
     State1 = State#state{socket = undefined},
     if State#state.reconnect ->
             case connect(State1) of
@@ -339,6 +357,7 @@ disconnect(State) ->
            [element(2, inet:peername(State#state.socket))]),
     ok = gen_tcp:close(State#state.socket),
     _OldStatus = erase(connected),
+    ok = notify(State, disconnected),
     State#state{socket = undefined}.
 
 %% @doc Try to establish connection to the broker.
@@ -363,6 +382,7 @@ connect(State) ->
         {ok, Socket} ->
             _OldStatus = put(connected, true),
             ?trace("connected to ~9999p:~w", [Host, Port]),
+            ok = notify(State, connected),
             {ok, Socket};
         {error, _Reason} = Error ->
             ?trace("failed to connect to ~9999p:~w: ~9999p",
@@ -381,6 +401,15 @@ connect(State) ->
             end,
             Error
     end.
+
+%% @doc Send notification to state listener process (if set).
+-spec notify(#state{}, Message :: any()) -> ok.
+notify(#state{listener = undefined}, _Message) ->
+    ?trace("skip notifying: ~9999p", [_Message]);
+notify(#state{listener = Listener}, Message) ->
+    ?trace("notifying ~w: ~9999p", [Listener, Message]),
+    _Sent = Listener ! {?MODULE, self(), Message},
+    ok.
 
 %% @doc Perform synchronous request to the connected broker.
 -spec handle_sync(#state{}, Request :: binary(), timeout()) ->
@@ -437,3 +466,50 @@ handle_async(State, Request) ->
             ?trace("failed to send request: ~9999p", [Reason]),
             {error, Reason}
     end.
+
+%% ----------------------------------------------------------------------
+%% Unit tests
+%% ----------------------------------------------------------------------
+
+-ifdef(TEST).
+
+state_listening_test_() ->
+    ServerName = kafka_broker,
+    Port = 19092,
+    {setup,
+     _Startup =
+         fun() ->
+                 spawn_link(
+                   fun() ->
+                           true = register(ServerName, self()),
+                           {ok, ServerSocket} =
+                               gen_tcp:listen(Port, [{reuseaddr, true}]),
+                           {ok, S1} = gen_tcp:accept(ServerSocket),
+                           receive cut -> gen_tcp:close(S1) end,
+                           {ok, S2} = gen_tcp:accept(ServerSocket),
+                           receive advent -> ok end,
+                           gen_tcp:close(S2)
+                   end)
+         end,
+     _Cleanup =
+         fun(_) ->
+                 true = erlang:exit(whereis(ServerName), normal)
+         end,
+     fun() ->
+             {ok, S} = start_link(localhost, Port, [reconnect,
+                                                    {reconnect_period, 200},
+                                                    {state_listener, self()}]),
+             receive {?MODULE, S, connected} -> ok
+             after 1000 -> throw(no_connect_notify) end,
+             ServerName ! cut,
+             receive {?MODULE, S, disconnected} -> ok
+             after 1000 -> throw(no_disconnect_notify) end,
+             %% wait until the client reconnects
+             receive {?MODULE, S, connected} -> ok
+             after 1000 -> throw(no_connect_notify) end,
+             ok = close(S),
+             receive {?MODULE, S, disconnected} -> ok
+             after 1000 -> throw(no_disconnect_notify) end
+     end}.
+
+-endif.
