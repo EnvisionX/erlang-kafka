@@ -60,6 +60,7 @@
 
 -type option() ::
         reconnect |
+        sync_start |
         {connect_timeout, non_neg_integer()} |
         {reconnect_period, non_neg_integer()} |
         {state_listener, pid() | atom()}.
@@ -75,6 +76,11 @@
 %% <ul>
 %%  <li>reconnect - do not terminate on connection error or disconnect,
 %%     reconnect to the broker automatically;</li>
+%%  <li>sync_start - only for 'reconnect' mode. If defined, connection
+%%     attempt will be made during process init and if connection will
+%%     fail whole process will fail too. After successfull connection
+%%     the process will behave just like normal process with 'reconnect'
+%%     mode enabled;</li>
 %%  <li>{connect_timeout, Millis} - set TCP connect timeout;</li>
 %%  <li>{reconnect_period, Millis} - set sleep time before reconnecting.
 %%     Does sense only when 'reconnect' is set;</li>
@@ -186,6 +192,7 @@ async(Pid, ApiKey, ApiVersion, ClientID, RequestPayload) ->
 init({Host, Port, Options}) ->
     ?trace("init(~9999p)", [{Host, Port, Options}]),
     Reconnect = lists:member(reconnect, Options),
+    SyncStart = lists:member(sync_start, Options),
     State0 =
         #state{
            host = Host,
@@ -193,7 +200,7 @@ init({Host, Port, Options}) ->
            reconnect = Reconnect,
            listener = proplists:get_value(state_listener, Options),
            opts = Options},
-    if Reconnect ->
+    if Reconnect andalso not SyncStart ->
             %% schedule reconnect in background
             ok = reconnect(self()),
             {ok, State0};
