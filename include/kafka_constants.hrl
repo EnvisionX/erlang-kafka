@@ -46,6 +46,9 @@
 %% Retriable: no. OFFSET_OUT_OF_RANGE1FalseThe requested offset is
 %% not within the range of offsets maintained by the server.
 -define(NONE, 0).
+%% Retriable: no. The requested offset is outside the range of offsets
+%% maintained by the server for the given topic/partition.
+-define(OFFSET_OUT_OF_RANGE, 1).
 %% Retriable: yes. The message contents does not match the message CRC
 %% or the message is otherwise corrupt.
 -define(CORRUPT_MESSAGE, 2).
@@ -120,6 +123,7 @@
    case ErrorCode of
        ?UNKNOWN -> unknown;
        ?NONE -> none;
+       ?OFFSET_OUT_OF_RANGE -> offset_out_of_range;
        ?CORRUPT_MESSAGE -> corrupt_message;
        ?UNKNOWN_TOPIC_OR_PARTITION -> unknown_topic_or_partition;
        ?LEADER_NOT_AVAILABLE -> leader_not_available;
