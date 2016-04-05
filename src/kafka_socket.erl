@@ -26,6 +26,7 @@
 
 -include("kafka.hrl").
 -include("kafka_types.hrl").
+-include("kafka_constants.hrl").
 -include("kafka_defaults.hrl").
 
 %% --------------------------------------------------------------------
@@ -140,11 +141,14 @@ sync(Pid, ApiKey, ApiVersion, ClientID, RequestPayload) ->
            Timeout :: timeout()) ->
                   {ok, ResponsePayload :: tuple()} | {error, Reason :: any()}.
 sync(Pid, ApiKey, ApiVersion, ClientID, RequestPayload, Timeout) ->
+    ?trace("sync req: ~w; ApiVersion: ~w; ClientID: ~w; Payload: ~9999p",
+           [?apikey2atom(ApiKey), ApiVersion, ClientID, RequestPayload]),
     Req = encode_request(ApiKey, ApiVersion, ClientID, RequestPayload),
     case gen_server:call(Pid, ?KAFKA_SYNC(Req, Timeout), infinity) of
         {ok, Encoded} ->
             Spec = kafka_api:resp(ApiKey, ApiVersion),
             {{_CorellationID, Decoded}, _Tail} = kafka_codec:dec(Spec, Encoded),
+            ?trace("answer: ~9999p", [Decoded]),
             {ok, Decoded};
         {error, _Reason} = Error ->
             Error
@@ -168,6 +172,8 @@ sync(Pid, ApiKey, ApiVersion, ClientID, RequestPayload, Timeout) ->
             RequestPayload :: any()) ->
                    ok | {error, Reason :: any()}.
 async(Pid, ApiKey, ApiVersion, ClientID, RequestPayload) ->
+    ?trace("async req: ~w; ApiVersion: ~w; ClientID: ~w; Payload: ~9999p",
+           [?apikey2atom(ApiKey), ApiVersion, ClientID, RequestPayload]),
     Req = encode_request(ApiKey, ApiVersion, ClientID, RequestPayload),
     gen_server:call(Pid, ?KAFKA_ASYNC(Req), infinity).
 

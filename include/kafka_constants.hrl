@@ -156,4 +156,27 @@
        _ -> ErrorCode
    end).
 
+-define(
+   apikey2atom(ApiKey),
+   case ApiKey of
+       ?Produce -> 'Produce';
+       ?Fetch -> 'Fetch';
+       ?Offsets -> 'Offsets';
+       ?Metadata -> 'Metadata';
+       ?LeaderAndIsr -> 'LeaderAndIsr';
+       ?StopReplica -> 'StopReplica';
+       ?UpdateMetadata -> 'UpdateMetadata';
+       ?ControlledShutdown -> 'ControlledShutdown';
+       ?OffsetCommit -> 'OffsetCommit';
+       ?OffsetFetch -> 'OffsetFetch';
+       ?GroupCoordinator -> 'GroupCoordinator';
+       ?JoinGroup -> 'JoinGroup';
+       ?Heartbeat -> 'Heartbeat';
+       ?LeaveGroup -> 'LeaveGroup';
+       ?SyncGroup -> 'SyncGroup';
+       ?DescribeGroups -> 'DescribeGroups';
+       ?ListGroups -> 'ListGroups';
+       ApiKey -> ApiKey
+   end).
+
 -endif.
