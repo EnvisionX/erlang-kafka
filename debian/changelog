@@ -1,3 +1,22 @@
+erlang-kafka (1.1.0) unstable; urgency=low
+
+  * implement high level asynchronous consumer
+  * add module for simple wrappers
+  * _socket: add extra tracing
+  * macros: add missing 1 ErrorCode
+  * add human readable mapping for error codes
+  * codec: allow Kafka "string" to be Erlang binary()
+  * add metadata/1 convenient wrapper in the main module
+  * define some commonly used data types
+  * _socket: add new option - sync_start
+  * _socket: minor fix - add missing "behaviour" module option
+  * _socket: implement {state_listener,X} option
+  * deb specs: run unit tests during DEB package build
+  * deb specs: pack header files in erlang-kafka-dev DEB package
+  * deb specs: minor description fix
+
+ -- Aleksey Morarash <aleksey.morarash@gmail.com>  Tue, 05 Apr 2016 15:58:41 +0300
+
 erlang-kafka (1.0.0) unstable; urgency=low
 
   * MAJOR: Total refactor. Less code, more features
