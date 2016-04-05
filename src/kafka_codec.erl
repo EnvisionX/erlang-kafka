@@ -67,7 +67,11 @@ enc(string = _K, undefined = _V) ->
     <<-1:16/big-signed>>;
 enc(string = _K, S) ->
     ?trace("enc(~9999p, ~9999p)", [_K, S]),
-    [<<(length(S)):16/big-signed>>, S];
+    if is_list(S) ->
+            [<<(length(S)):16/big-signed>>, S];
+       is_binary(S) ->
+            <<(size(S)):16/big-signed, S/binary>>
+    end;
 enc(bytes = _K, undefined = _V) ->
     ?trace("enc(~9999p, ~9999p)", [_K, _V]),
     <<-1:32/big-signed>>;
