@@ -128,7 +128,7 @@ produce(Socket, Topic, Partition, Key, Value) ->
            {_Acks = 1,
             _Timeout = 1000,
             [{Topic, [{Partition, [{_AutoAssignOffset = -1,
-                                    {_MagicByte = 0,
+                                    {_MagicByte = 1,
                                      _Attributes = 0,
                                      Key, Value}}]}]}]},
            _SockReadTimeout = infinity) of
