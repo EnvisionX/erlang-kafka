@@ -91,8 +91,12 @@ metadata([{Host, Port} | Tail]) ->
           Timeout :: timeout()) ->
                  {ok, ResponsePayload :: any()} | {error, Reason :: any()}.
 crd(Host, Port, ApiKey, ApiVersion, ClientID, RequestPayload, Timeout) ->
-    {ok, Socket} = kafka_socket:start_link(Host, Port, []),
-    Result = kafka_socket:sync(Socket, ApiKey, ApiVersion, ClientID,
-                               RequestPayload, Timeout),
-    ok = kafka_socket:close(Socket),
-    Result.
+    case kafka_socket:start_link(Host, Port, []) of
+        {ok, Socket} ->
+            Result = kafka_socket:sync(Socket, ApiKey, ApiVersion, ClientID,
+                                       RequestPayload, Timeout),
+            ok = kafka_socket:close(Socket),
+            Result;
+        {error, _Reason} = Error ->
+            Error
+    end.
