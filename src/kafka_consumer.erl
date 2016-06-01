@@ -269,7 +269,6 @@ handle_info(_Request, State) ->
 
 %% @hidden
 -spec handle_call(Request :: any(), From :: any(), State :: #state{}) ->
-                         {reply, Reply :: any(), NewState :: #state{}} |
                          {noreply, NewState :: #state{}}.
 handle_call(_Request, _From, State) ->
     ?trace("unknown call from ~w: ~9999p", [_From, _Request]),
