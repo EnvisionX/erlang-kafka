@@ -189,6 +189,7 @@ reconnect(Pid) ->
                   {stop, Reason :: any()}.
 init({Nodes, TopicName, PartitionID, Listener, Options} = _Args) ->
     ?trace("init(~9999p)", [_Args]),
+    false = process_flag(trap_exit, true),
     ok = reconnect(self()),
     {ok,
      #state{
@@ -258,6 +259,10 @@ handle_info(?CHECK_CONNECTION, State) ->
     end;
 handle_info(?CLOSE, State) ->
     {stop, normal, disconnect(State)};
+handle_info({'EXIT', PID, _Reason}, State)
+  when State#state.socket == PID ->
+    ?trace("socket process died: ~9999p", [_Reason]),
+    {noreply, connect(State)};
 handle_info(_Request, State) ->
     ?trace("unknown info message: ~9999p", [_Request]),
     {noreply, State}.
@@ -272,7 +277,8 @@ handle_call(_Request, _From, State) ->
 
 %% @hidden
 -spec terminate(Reason :: any(), State :: #state{}) -> ok.
-terminate(_Reason, _State) ->
+terminate(_Reason, State) ->
+    _NewState = disconnect(State),
     ok.
 
 %% @hidden
