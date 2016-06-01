@@ -1,3 +1,12 @@
+erlang-kafka (1.1.1) unstable; urgency=low
+
+  * consumer: fix function spec
+  * consumer: trap exits
+  * make crd/7 call more user friendly
+  * kafka_d:produce/5 and examples minor fix
+
+ -- Aleksey Morarash <aleksey.morarash@gmail.com>  Wed, 01 Jun 2016 19:43:30 +0300
+
 erlang-kafka (1.1.0) unstable; urgency=low
 
   * implement high level asynchronous consumer
