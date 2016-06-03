@@ -98,6 +98,12 @@
 %% signal to disable suspend
 -define(SUSPEND_DISABLE, '*suspend_disable*').
 
+%% notification messages about consumer status change
+-define(NOTIFY_CONNECT, connect).
+-define(NOTIFY_DISCONNECT, disconnect).
+-define(NOTIFY_SUSPEND, suspend).
+-define(NOTIFY_RESUME, resume).
+
 %% --------------------------------------------------------------------
 %% Type definitions
 %% --------------------------------------------------------------------
@@ -106,7 +112,9 @@
    [knodes/0,
     options/0,
     option/0,
-    listener/0
+    listener/0,
+    status_change_listener/0,
+    status_change_message/0
    ]).
 
 -type knodes() :: [{kafka_socket:host(), inet:port_number()}].
@@ -122,13 +130,25 @@
         {sleep_time, pos_integer()} |
         {connect_timeout, non_neg_integer()} |
         {reconnect_period, non_neg_integer()} |
-        {listener, listener()}.
+        {listener, listener()} |
+        {status_change_listener, status_change_listener()}.
 
 -type listener() ::
         (RegisteredName :: atom()) |
         pid() |
         fun((Offset :: int64(), Key :: kbytes(), Value :: kbytes()) ->
                    Ignored :: any()).
+
+-type status_change_listener() ::
+        (RegisteredName :: atom()) |
+        pid() |
+        fun((status_change_message()) -> Ignored :: any()).
+
+-type status_change_message() ::
+        ?NOTIFY_CONNECT |
+        ?NOTIFY_DISCONNECT |
+        ?NOTIFY_SUSPEND |
+        ?NOTIFY_RESUME.
 
 %% --------------------------------------------------------------------
 %% API functions
@@ -195,6 +215,7 @@ reconnect(Pid) ->
     group_id :: kstring(),
     offset :: offset() | undefined,
     listener :: listener(),
+    status_change_listener :: status_change_listener() | undefined,
     autocommit :: boolean(),
     max_bytes :: pos_integer(),
     max_wait_time :: pos_integer(),
@@ -220,6 +241,7 @@ init({Nodes, TopicName, PartitionID, Listener, Options} = _Args) ->
         partition = PartitionID,
         group_id = proplists:get_value(group_id, Options, ?CONSUMER_GROUP_ID),
         listener = Listener,
+        status_change_listener = proplists:get_value(status_change_listener, Options),
         autocommit = lists:member(autocommit, Options),
         max_bytes = proplists:get_value(max_bytes, Options, ?CONSUMER_MAX_BYTES),
         max_wait_time =
@@ -241,14 +263,16 @@ handle_cast(?SET_NODES(Nodes), State) ->
     ?trace("node list changed from ~9999p to ~9999p",
            [State#state.nodes, Nodes]),
     {noreply, State#state{nodes = Nodes}};
+handle_cast(?SUSPEND(Millis), State)
+  when State#state.suspended ->
+    %% Suspend requested, but we're already in suspend.
+    %% Reschedule resume as owner wants.
+    {ok, cancel} = timer:cancel(State#state.suspend_timer),
+    {ok, TRef} = timer:send_after(Millis, ?SUSPEND_DISABLE),
+    {noreply, State#state{suspend_timer = TRef}};
 handle_cast(?SUSPEND(Millis), State) ->
-    if State#state.suspend_timer /= undefined ->
-            %% disable old timer
-            {ok, cancel} = timer:cancel(State#state.suspend_timer),
-            ok;
-       true ->
-            ok
-    end,
+    %% Enable suspend mode.
+    ok = notify(State, ?NOTIFY_SUSPEND),
     {ok, TRef} = timer:send_after(Millis, ?SUSPEND_DISABLE),
     {noreply,
      State#state{
@@ -271,6 +295,7 @@ handle_info(?FETCH, State) when State#state.suspended ->
 handle_info(?FETCH, State) ->
     {noreply, fetch(State)};
 handle_info(?SUSPEND_DISABLE, State) ->
+    ok = notify(State, ?NOTIFY_RESUME),
     {noreply,
      State#state{
        suspended = false,
@@ -278,9 +303,11 @@ handle_info(?SUSPEND_DISABLE, State) ->
       }};
 handle_info({kafka_socket, Socket, connected}, State)
   when State#state.socket == Socket ->
+    ok = notify(State, ?NOTIFY_CONNECT),
     {noreply, State};
 handle_info({kafka_socket, Socket, disconnected}, State)
   when State#state.socket == Socket ->
+    ok = notify(State, ?NOTIFY_DISCONNECT),
     %% For some reason socket process closed TCP connection.
     %% Schedule connection state check after two periods of
     %% reconnect. If connection will not restore until this
@@ -664,6 +691,32 @@ commit_offset(State, Offset) ->
                                    State#state.partition,
                                    State#state.group_id,
                                    Offset),
+    ok.
+
+%% @doc Send notification to status change listener process, if
+%% such defined.
+-spec notify(#state{}, status_change_message()) -> ok.
+notify(#state{status_change_listener = Listener}, Message)
+  when is_function(Listener, 1) ->
+    try
+        _Ignored = Listener(Message),
+        ok
+    catch
+        _ExcType:_ExcReason ->
+            ok
+    end;
+notify(#state{status_change_listener = Listener,
+              topic = Topic,
+              partition = Partition}, Message)
+  when Listener /= undefined ->
+    try
+        _Sent = Listener ! {?MODULE, self(), Topic, Partition, Message},
+        ok
+    catch
+        _ExcType:_ExcReason ->
+            ok
+    end;
+notify(_State, _Message) ->
     ok.
 
 %% ----------------------------------------------------------------------
