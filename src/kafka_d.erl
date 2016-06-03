@@ -45,7 +45,8 @@
 -spec get_first_offset(Socket :: pid(), topic_name(), partition_id()) ->
                               {ok, Offset :: offset()} |
                               {error, Reason :: any()}.
-get_first_offset(Socket, Topic, Partition) ->
+get_first_offset(Socket, Topic0, Partition) ->
+    Topic = canonicalize_string(Topic0),
     case kafka_socket:sync(
            Socket, ?Offsets, _ApiVersion = 0, _ClientID = undefined,
            {_ReplicaID = -1, [{Topic, [{Partition, -2, _Len = 1}]}]},
@@ -62,7 +63,8 @@ get_first_offset(Socket, Topic, Partition) ->
 -spec get_last_offset(Socket :: pid(), topic_name(), partition_id()) ->
                              {ok, Offset :: offset()} |
                              {error, Reason :: any()}.
-get_last_offset(Socket, Topic, Partition) ->
+get_last_offset(Socket, Topic0, Partition) ->
+    Topic = canonicalize_string(Topic0),
     case kafka_socket:sync(
            Socket, ?Offsets, _ApiVersion = 0, _ClientID = undefined,
            {_ReplicaID = -1, [{Topic, [{Partition, -1, _Len = 1}]}]},
@@ -82,7 +84,8 @@ get_last_offset(Socket, Topic, Partition) ->
                          group_id()) ->
                                 {ok, Offset :: offset()} |
                                 {error, Reason :: any()}.
-get_current_offset(Socket, Topic, Partition, GroupID) ->
+get_current_offset(Socket, Topic0, Partition, GroupID) ->
+    Topic = canonicalize_string(Topic0),
     case kafka_socket:sync(
            Socket, ?OffsetFetch, _ApiVersion = 0, _ClientID = undefined,
            {GroupID, [{Topic, [Partition]}]},
@@ -102,7 +105,8 @@ get_current_offset(Socket, Topic, Partition, GroupID) ->
                          group_id(),
                          offset()) ->
                                 ok | {error, Reason :: any()}.
-set_current_offset(Socket, Topic, Partition, GroupID, Offset) ->
+set_current_offset(Socket, Topic0, Partition, GroupID, Offset) ->
+    Topic = canonicalize_string(Topic0),
     case kafka_socket:sync(
            Socket, ?OffsetCommit, _ApiVersion = 0, _ClientID = undefined,
            {GroupID, [{Topic, [{Partition, Offset, _Metadata = undefined}]}]},
@@ -122,7 +126,8 @@ set_current_offset(Socket, Topic, Partition, GroupID, Offset) ->
               Key :: kafka:kbytes(),
               Value :: kafka:kbytes()) ->
                      ok | {error, Reason :: any()}.
-produce(Socket, Topic, Partition, Key, Value) ->
+produce(Socket, Topic0, Partition, Key, Value) ->
+    Topic = canonicalize_string(Topic0),
     case kafka_socket:sync(
            Socket, ?Produce, _ApiVersion = 0, _ClientID = undefined,
            {_Acks = 1,
@@ -139,3 +144,15 @@ produce(Socket, Topic, Partition, Key, Value) ->
         {error, _Reason} = Error ->
             Error
     end.
+
+%% ----------------------------------------------------------------------
+%% Internal functions
+%% ----------------------------------------------------------------------
+
+%% @doc Convert string to a canonic form from the point
+%% of view of protocol codec.
+-spec canonicalize_string(binary() | string()) -> string().
+canonicalize_string(Binary) when is_binary(Binary) ->
+    binary_to_list(Binary);
+canonicalize_string(List) when is_list(List) ->
+    List.
