@@ -1,3 +1,9 @@
+erlang-kafka (1.2.0) unstable; urgency=low
+
+  * consumer: add flow control
+
+ -- Aleksey Morarash <aleksey.morarash@gmail.com>  Fri, 03 Jun 2016 09:53:55 +0300
+
 erlang-kafka (1.1.1) unstable; urgency=low
 
   * consumer: fix function spec
