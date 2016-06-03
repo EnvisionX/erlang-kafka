@@ -57,7 +57,8 @@
     set_nodes/2,
     reconsume/2,
     close/1,
-    reconnect/1
+    reconnect/1,
+    unread_messages/1
    ]).
 
 %% gen_server callback exports
@@ -202,6 +203,26 @@ close(Pid) ->
 -spec reconnect(pid()) -> ok.
 reconnect(Pid) ->
     gen_server:cast(Pid, ?RECONNECT).
+
+%% @doc Return number of unread messages in consumed partition.
+%% Note the number became available only after first fetch request,
+%% even if it does not returned any data.
+-spec unread_messages(pid()) -> {ok, non_neg_integer()} | undefined.
+unread_messages(Pid) ->
+    %% The function implemented so because the process is often
+    %% blocked by reading messages from socket.
+    %% This approach is dirty but works in any cases.
+    case process_info(Pid, dictionary) of
+        {dictionary, Dictionary} ->
+            case lists:keyfind(unread_messages, 1, Dictionary) of
+                {unread_messages, UnreadMessages} ->
+                    {ok, UnreadMessages};
+                false ->
+                    undefined
+            end;
+        undefined ->
+            undefined
+    end.
 
 %% ----------------------------------------------------------------------
 %% gen_server callbacks
@@ -625,7 +646,8 @@ fetch(#state{socket = Socket} = State) ->
     case kafka_socket:sync(Socket, _ApiKey = ?Fetch, _ApiVersion = 0,
                            _ClientID = undefined, FetchRequest,
                            _SockReadTimeout = infinity) of
-        {ok, [{_Topic, [{_Partition, ?NONE = _ErrorCode, _HighWatermark, []}]}]} ->
+        {ok, [{_Topic, [{_Partition, ?NONE = _ErrorCode, HighWatermark, []}]}]} ->
+            _OldUnreadMessages = put(unread_messages, HighWatermark - State#state.offset),
             ?trace("broker returned empty message set", []),
             {ok, _TRef} = timer:send_after(State#state.sleep_time, ?FETCH),
             State;
@@ -645,6 +667,7 @@ fetch(#state{socket = Socket} = State) ->
                           max(Offset, Accum)
                   end, State#state.offset, MessageSet),
             NextOffset = MaxOffset + 1,
+            _OldUnreadMessages = put(unread_messages, HighWatermark - NextOffset),
             _Ignored = State#state.autocommit andalso commit_offset(State, NextOffset),
             if HighWatermark < NextOffset ->
                     %% End of the partition reached.
@@ -659,6 +682,7 @@ fetch(#state{socket = Socket} = State) ->
             end,
             State#state{offset = NextOffset};
         {ok, [{_Topic, [{_Partition, ?OFFSET_OUT_OF_RANGE = _ErrorCode, _, _}]}]} ->
+            _OldUnreadMessages = erase(unread_messages),
             ?trace("fetch failed: ~w", [?err2atom(_ErrorCode)]),
             case kafka_d:get_last_offset(Socket, Topic, Partition) of
                 {ok, Last} when Last < State#state.offset ->
@@ -674,10 +698,12 @@ fetch(#state{socket = Socket} = State) ->
                     disconnect(State)
             end;
         {ok, [{_Topic, [{_Partition, _ErrorCode, _, _}]}]} ->
+            _OldUnreadMessages = erase(unread_messages),
             ?trace("fetch failed: ~w", [?err2atom(_ErrorCode)]),
             {ok, _TRef} = timer:send_after(1000, ?FETCH),
             State;
         {error, _Reason} ->
+            _OldUnreadMessages = erase(unread_messages),
             ok = reconnect(self()),
             disconnect(State)
     end.
