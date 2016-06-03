@@ -35,6 +35,12 @@
 %%% Worth to say if you use 'autocommit' option, offsets will
 %%% be marked as 'consumed' when they received from Kafka broker,
 %%% but not when they really processed.
+%%%
+%%% Flow control.
+%%% When listener became overloaded with data sent by consumer,
+%%% it can call suspend/2 function to suspend consumpsion for
+%%% a given period of time. Consumer will continue to fetch data
+%%% from Kafka after requested time period.
 
 %%% @author Aleksey Morarash <aleksey.morarash@gmail.com>
 %%% @since 04 Apr 2016
@@ -47,6 +53,7 @@
 %% API exports
 -export(
    [start_link/4,
+    suspend/2,
     set_nodes/2,
     reconsume/2,
     close/1,
@@ -67,6 +74,9 @@
 %% Internal signals
 %% --------------------------------------------------------------------
 
+%% to tell the consumer to suspend consumpsion for a while
+-define(SUSPEND(Millis), {'*suspend*', Millis}).
+
 %% to tell the consumer to update Kafka broker list
 -define(SET_NODES(Nodes), {'*set_nodes*', Nodes}).
 
@@ -84,6 +94,9 @@
 
 %% signal to start/continue data consuming
 -define(FETCH, '*fetch*').
+
+%% signal to disable suspend
+-define(SUSPEND_DISABLE, '*suspend_disable*').
 
 %% --------------------------------------------------------------------
 %% Type definitions
@@ -131,6 +144,13 @@ start_link(Nodes, TopicName, PartitionID, Options) ->
     Listener = proplists:get_value(listener, Options, self()),
     gen_server:start_link(
       ?MODULE, {Nodes, TopicName, PartitionID, Listener, Options}, []).
+
+%% @doc Tell the process to suspend data consumpsion for a given
+%% time period. This is kinda flow control for cases when data
+%% listener is overloaded with data sent from consumer.
+-spec suspend(pid(), Millis :: non_neg_integer()) -> ok.
+suspend(Pid, Millis) ->
+    gen_server:cast(Pid, ?SUSPEND(Millis)).
 
 %% @doc Set list of Kafka broker nodes for bootstrapping.
 %% If you interested in reconfiguring the consumer immediately, you
@@ -180,6 +200,8 @@ reconnect(Pid) ->
     max_wait_time :: pos_integer(),
     sleep_time :: pos_integer(),
     opts :: options(),
+    suspended = false :: boolean(),
+    suspend_timer :: reference() | undefined,
     socket :: pid() | undefined
    }).
 
@@ -219,6 +241,20 @@ handle_cast(?SET_NODES(Nodes), State) ->
     ?trace("node list changed from ~9999p to ~9999p",
            [State#state.nodes, Nodes]),
     {noreply, State#state{nodes = Nodes}};
+handle_cast(?SUSPEND(Millis), State) ->
+    if State#state.suspend_timer /= undefined ->
+            %% disable old timer
+            {ok, cancel} = timer:cancel(State#state.suspend_timer),
+            ok;
+       true ->
+            ok
+    end,
+    {ok, TRef} = timer:send_after(Millis, ?SUSPEND_DISABLE),
+    {noreply,
+     State#state{
+       suspended = true,
+       suspend_timer = TRef
+      }};
 handle_cast(_Request, State) ->
     ?trace("unknown cast message: ~9999p", [_Request]),
     {noreply, State}.
@@ -227,8 +263,19 @@ handle_cast(_Request, State) ->
 -spec handle_info(Info :: any(), State :: #state{}) ->
                          {noreply, State :: #state{}} |
                          {stop, Reason :: any(), #state{}}.
+handle_info(?FETCH, State) when State#state.suspended ->
+    %% we're in suspend mode, do not consume, wait
+    %% for suspend disable
+    {ok, _TRef} = timer:send_after(State#state.sleep_time, ?FETCH),
+    {noreply, State};
 handle_info(?FETCH, State) ->
     {noreply, fetch(State)};
+handle_info(?SUSPEND_DISABLE, State) ->
+    {noreply,
+     State#state{
+       suspended = false,
+       suspend_timer = undefined
+      }};
 handle_info({kafka_socket, Socket, connected}, State)
   when State#state.socket == Socket ->
     {noreply, State};
