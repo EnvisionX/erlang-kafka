@@ -54,6 +54,7 @@
 -export(
    [start_link/4,
     suspend/2,
+    resume/1,
     set_nodes/2,
     reconsume/2,
     close/1,
@@ -173,6 +174,12 @@ start_link(Nodes, TopicName, PartitionID, Options) ->
 suspend(Pid, Millis) ->
     gen_server:cast(Pid, ?SUSPEND(Millis)).
 
+%% @doc Disable suspend mode and continue to fetch data from partition.
+-spec resume(pid()) -> ok.
+resume(Pid) ->
+    _Sent = Pid ! ?SUSPEND_DISABLE,
+    ok.
+
 %% @doc Set list of Kafka broker nodes for bootstrapping.
 %% If you interested in reconfiguring the consumer immediately, you
 %% have to call reconnect/1 after it.
@@ -284,13 +291,10 @@ handle_cast(?SET_NODES(Nodes), State) ->
     ?trace("node list changed from ~9999p to ~9999p",
            [State#state.nodes, Nodes]),
     {noreply, State#state{nodes = Nodes}};
-handle_cast(?SUSPEND(Millis), State)
+handle_cast(?SUSPEND(_Millis), State)
   when State#state.suspended ->
-    %% Suspend requested, but we're already in suspend.
-    %% Reschedule resume as owner wants.
-    {ok, cancel} = timer:cancel(State#state.suspend_timer),
-    {ok, TRef} = timer:send_after(Millis, ?SUSPEND_DISABLE),
-    {noreply, State#state{suspend_timer = TRef}};
+    %% ignore as we're already in suspend mode.
+    {noreply, State};
 handle_cast(?SUSPEND(Millis), State) ->
     %% Enable suspend mode.
     ok = notify(State, ?NOTIFY_SUSPEND),
@@ -315,13 +319,18 @@ handle_info(?FETCH, State) when State#state.suspended ->
     {noreply, State};
 handle_info(?FETCH, State) ->
     {noreply, fetch(State)};
-handle_info(?SUSPEND_DISABLE, State) ->
+handle_info(?SUSPEND_DISABLE, State)
+  when State#state.suspended ->
     ok = notify(State, ?NOTIFY_RESUME),
+    {ok, cancel} = timer:cancel(State#state.suspend_timer),
     {noreply,
      State#state{
        suspended = false,
        suspend_timer = undefined
       }};
+handle_info(?SUSPEND_DISABLE, State) ->
+    %% ignore, we're not in suspend mode
+    {noreply, State};
 handle_info({kafka_socket, Socket, connected}, State)
   when State#state.socket == Socket ->
     ok = notify(State, ?NOTIFY_CONNECT),
