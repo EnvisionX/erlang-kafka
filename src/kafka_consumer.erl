@@ -249,7 +249,6 @@ unread_messages(Pid) ->
     max_wait_time :: pos_integer(),
     sleep_time :: pos_integer(),
     opts :: options(),
-    suspended = false :: boolean(),
     suspend_timer :: reference() | undefined,
     socket :: pid() | undefined
    }).
@@ -292,18 +291,14 @@ handle_cast(?SET_NODES(Nodes), State) ->
            [State#state.nodes, Nodes]),
     {noreply, State#state{nodes = Nodes}};
 handle_cast(?SUSPEND(_Millis), State)
-  when State#state.suspended ->
+  when State#state.suspend_timer /= undefined ->
     %% ignore as we're already in suspend mode.
     {noreply, State};
 handle_cast(?SUSPEND(Millis), State) ->
     %% Enable suspend mode.
     ok = notify(State, ?NOTIFY_SUSPEND),
     {ok, TRef} = timer:send_after(Millis, ?SUSPEND_DISABLE),
-    {noreply,
-     State#state{
-       suspended = true,
-       suspend_timer = TRef
-      }};
+    {noreply, State#state{suspend_timer = TRef}};
 handle_cast(_Request, State) ->
     ?trace("unknown cast message: ~9999p", [_Request]),
     {noreply, State}.
@@ -312,7 +307,7 @@ handle_cast(_Request, State) ->
 -spec handle_info(Info :: any(), State :: #state{}) ->
                          {noreply, State :: #state{}} |
                          {stop, Reason :: any(), #state{}}.
-handle_info(?FETCH, State) when State#state.suspended ->
+handle_info(?FETCH, State) when State#state.suspend_timer /= undefined ->
     %% we're in suspend mode, do not consume, wait
     %% for suspend disable
     {ok, _TRef} = timer:send_after(State#state.sleep_time, ?FETCH),
@@ -320,14 +315,10 @@ handle_info(?FETCH, State) when State#state.suspended ->
 handle_info(?FETCH, State) ->
     {noreply, fetch(State)};
 handle_info(?SUSPEND_DISABLE, State)
-  when State#state.suspended ->
+  when State#state.suspend_timer /= undefined ->
     ok = notify(State, ?NOTIFY_RESUME),
     {ok, cancel} = timer:cancel(State#state.suspend_timer),
-    {noreply,
-     State#state{
-       suspended = false,
-       suspend_timer = undefined
-      }};
+    {noreply, State#state{suspend_timer = undefined}};
 handle_info(?SUSPEND_DISABLE, State) ->
     %% ignore, we're not in suspend mode
     {noreply, State};
