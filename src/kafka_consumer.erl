@@ -199,12 +199,17 @@ set_max_bytes(Pid, MaxBytes) when is_integer(MaxBytes), MaxBytes > 0 ->
 %% @doc Tell the process to consume from another offset.
 %% If offset is positive integer, it treated as absolute position.
 %% If set as negative, it treated as current plus (actually minus) offset.
+%% If set as 'first', will reconsume from the eldest message in the partition.
+%% If set as 'lsst', will consume starting from current partition head
+%% (the most recently added message + 1).
 %% To make description more clear:
 %% <ul>
 %%  <li>reconsume(Socket, 1000) - means continue to consume from offset 1000;</li>
-%%  <li>reconsume(Socket, -1000) - means reconsume last 1000 messages again.</li>
+%%  <li>reconsume(Socket, -1000) - means reconsume last 1000 messages again;</li>
+%%  <li>reconsume(Socket, first) - means reconsume from the partition begin;</li>
+%%  <li>reconsume(Socket, last) - means consume starting from newly added messages.</li>
 %% </ul>
--spec reconsume(pid(), Offset :: offset()) -> ok.
+-spec reconsume(pid(), Offset :: offset() | first | last) -> ok.
 reconsume(Pid, Offset) ->
     gen_server:cast(Pid, ?RECONSUME(Offset)).
 
@@ -291,6 +296,10 @@ init({Nodes, TopicName, PartitionID, Listener, Options} = _Args) ->
                          {noreply, NewState :: #state{}}.
 handle_cast(?RECONNECT, State) ->
     {noreply, connect(State)};
+handle_cast(?RECONSUME(first = Offset), State) ->
+    {noreply, resolve_offset(State#state{offset = undefined}, Offset)};
+handle_cast(?RECONSUME(last = Offset), State) ->
+    {noreply, resolve_offset(State#state{offset = undefined}, Offset)};
 handle_cast(?RECONSUME(Offset), State) when Offset < 0 ->
     {noreply, State#state{offset = State#state.offset + Offset}};
 handle_cast(?RECONSUME(Offset), State) ->
@@ -455,16 +464,24 @@ connect(State0) ->
 %% values like 'first', 'last', 'current') to real counter
 %% in the state term.
 -spec resolve_offset(#state{}) -> #state{}.
-resolve_offset(#state{offset = Offset} = State)
+resolve_offset(State) ->
+    resolve_offset(
+      State,
+      proplists:get_value(offset, State#state.opts, ?CONSUMER_INITIAL_OFFSET)).
+
+%% @doc Convert configuration value {offset,x} (which can take
+%% values like 'first', 'last', 'current') to real counter
+%% in the state term.
+-spec resolve_offset(#state{}, offset() | first| current | last) -> #state{}.
+resolve_offset(#state{offset = Offset} = State, _NewOffset)
   when is_integer(Offset) ->
     %% already resolved
     check_offset(State);
-resolve_offset(State) ->
-    Options = State#state.opts,
+resolve_offset(State, NewOffset) ->
     Socket = State#state.socket,
     Topic = State#state.topic,
     Partition = State#state.partition,
-    case proplists:get_value(offset, Options, ?CONSUMER_INITIAL_OFFSET) of
+    case NewOffset of
         Offset when is_integer(Offset) ->
             ?trace("offset explicitly set to ~w", [Offset]),
             check_offset(State#state{offset = Offset});
