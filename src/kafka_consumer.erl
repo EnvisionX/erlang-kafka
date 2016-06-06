@@ -56,6 +56,7 @@
     suspend/2,
     resume/1,
     set_nodes/2,
+    set_max_bytes/2,
     reconsume/2,
     close/1,
     reconnect/1,
@@ -81,6 +82,9 @@
 
 %% to tell the consumer to update Kafka broker list
 -define(SET_NODES(Nodes), {'*set_nodes*', Nodes}).
+
+%% to tell the consumer to set new value for max_bytes configuration option.
+-define(SET_MAX_BYTES(MaxBytes), {'*set_max_bytes*', MaxBytes}).
 
 %% to tell the consumer to close the connection and exit
 -define(CLOSE, '*close*').
@@ -187,6 +191,11 @@ resume(Pid) ->
 set_nodes(Pid, Nodes) ->
     gen_server:cast(Pid, ?SET_NODES(Nodes)).
 
+%% @doc Set max_bytes field for fetch requests made by consumer.
+-spec set_max_bytes(pid(), pos_integer()) -> ok.
+set_max_bytes(Pid, MaxBytes) when is_integer(MaxBytes), MaxBytes > 0 ->
+    gen_server:cast(Pid, ?SET_MAX_BYTES(MaxBytes)).
+
 %% @doc Tell the process to consume from another offset.
 %% If offset is positive integer, it treated as absolute position.
 %% If set as negative, it treated as current plus (actually minus) offset.
@@ -290,6 +299,8 @@ handle_cast(?SET_NODES(Nodes), State) ->
     ?trace("node list changed from ~9999p to ~9999p",
            [State#state.nodes, Nodes]),
     {noreply, State#state{nodes = Nodes}};
+handle_cast(?SET_MAX_BYTES(MaxBytes), State) ->
+    {noreply, State#state{max_bytes = MaxBytes}};
 handle_cast(?SUSPEND(_Millis), State)
   when State#state.suspend_timer /= undefined ->
     %% ignore as we're already in suspend mode.
