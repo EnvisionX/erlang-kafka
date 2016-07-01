@@ -1,3 +1,10 @@
+erlang-kafka (1.4.0) unstable; urgency=low
+
+  * consumer: extend API for reconsume/2 function
+  * consumer: add set_max_bytes/2 API call
+
+ -- Aleksey Morarash <aleksey.morarash@gmail.com>  Fri, 01 Jul 2016 15:57:18 +0300
+
 erlang-kafka (1.3.0) unstable; urgency=low
 
   * consumer: simplify suspend/resume schema
